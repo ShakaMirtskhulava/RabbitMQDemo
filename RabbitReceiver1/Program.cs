@@ -279,3 +279,47 @@ channel2.Close();
 connection.Close();
 */
 
+// Manual Batch Acknowledgment Example Receiver
+/*
+using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
+using System.Text;
+
+string userName = "guest", password = "guest", queueMessagesPort = "5672";
+ConnectionFactory connectionFactory = new();
+connectionFactory.Uri = new Uri($"amqp://{userName}:{password}@localhost:{queueMessagesPort}");
+connectionFactory.ClientProvidedName = "RabbitMQ Receiver App1";
+connectionFactory.VirtualHost = "newVHost1";
+
+using IConnection connection = connectionFactory.CreateConnection();
+using IModel channel = connection.CreateModel();
+
+string exchangeName = "exchange1";
+string routingName = "routingKey1";
+string queueName = "queue1";
+channel.ExchangeDeclare(exchangeName, ExchangeType.Direct);
+channel.QueueDeclare(queueName, true, false, false, null);
+channel.QueueBind(queueName, exchangeName, routingName, null);  
+
+channel.BasicQos(0, 4, false);
+
+EventingBasicConsumer consumer = new(channel);
+consumer.Received += async (sender, args) =>
+{
+    byte[] body = args.Body.ToArray();
+    string message = Encoding.UTF8.GetString(body);
+    Console.WriteLine($"Processing message...: {message}");
+    await Task.Delay(1000);
+    Console.WriteLine($"Message processed");
+    
+    if(args.DeliveryTag >= 4)
+        channel.BasicAck(args.DeliveryTag, true);
+};
+
+var consumerTag = channel.BasicConsume(queueName, false, consumer);
+
+Console.WriteLine("Press any key to exit");
+Console.ReadKey();
+//channel.BasicCancel(consumerTag);
+*/
+
