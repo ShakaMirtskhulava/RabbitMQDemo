@@ -1,5 +1,5 @@
 
-//Direct Exchange Example
+//Direct Exchange Example Sender
 /*
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -183,3 +183,99 @@ channel.BasicCancel(consumerTag);
 channel.Close();
 connection.Close();
 */
+
+// Priority Queue Example - Message Consumption
+/*
+using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
+using System.Text;
+
+string userName = "guest", password = "guest", queueMessagesPort = "5672";
+ConnectionFactory connectionFactory = new();
+connectionFactory.Uri = new Uri($"amqp://{userName}:{password}@localhost:{queueMessagesPort}");
+connectionFactory.ClientProvidedName = "RabbitMQ Priority Consumer";
+connectionFactory.VirtualHost = "newVHost1";
+
+using IConnection connection = connectionFactory.CreateConnection();
+using IModel channel = connection.CreateModel();
+
+string queueName = "task_priority_queue";
+
+channel.QueueDeclare(queue: queueName,
+                     durable: true,
+                     exclusive: false,
+                     autoDelete: false,
+                     arguments: new Dictionary<string, object> { { "x-max-priority", 10 } });
+
+EventingBasicConsumer consumer = new(channel);
+consumer.Received += (sender, args) =>
+{
+    byte[] body = args.Body.ToArray();
+    string message = Encoding.UTF8.GetString(body);
+    Console.WriteLine($"Received: {message}");
+
+    channel.BasicAck(args.DeliveryTag, false);
+};
+
+channel.BasicConsume(queue: queueName, autoAck: false, consumer: consumer);
+
+Console.WriteLine("Press [enter] to exit.");
+Console.ReadLine();
+*/
+
+// Different Channel Acknowledgment Example Receiver
+/*
+using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
+using System.Text;
+
+string userName = "guest", password = "guest", queueMessagesPort = "5672";
+ConnectionFactory connectionFactory = new();
+connectionFactory.Uri = new Uri($"amqp://{userName}:{password}@localhost:{queueMessagesPort}");
+connectionFactory.ClientProvidedName = "RabbitMQ Receiver App1";
+connectionFactory.VirtualHost = "newVHost1";
+
+IConnection connection = connectionFactory.CreateConnection();
+IModel channel1 = connection.CreateModel();
+IModel channel2 = connection.CreateModel();
+
+string exchangeName = "exchange1";
+string routingName = "routingKey1";
+string queueName = "queue1";
+channel1.ExchangeDeclare(exchangeName, ExchangeType.Direct);
+channel1.QueueDeclare(queueName, true, false, false, null);
+channel1.QueueBind(queueName, exchangeName, routingName, null);
+
+channel1.BasicQos(0, 1, false);
+
+EventingBasicConsumer consumer = new(channel1);
+consumer.Received += async (sender, args) =>
+{
+    byte[] body = args.Body.ToArray();
+    string message = Encoding.UTF8.GetString(body);
+    Console.WriteLine($"(R1)Processing message...: {message}");
+    await Task.Delay(1000);
+    Console.WriteLine($"(R1)Message processed");
+
+    // Attempt to acknowledge the message on a different channel
+    try
+    {
+        channel2.BasicAck(args.DeliveryTag, false);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Exception: {ex.Message}");
+    }
+};
+
+var consumerTag = channel1.BasicConsume(queueName, false, consumer);
+
+Console.WriteLine("Press any key to exit");
+Console.ReadKey();
+
+channel1.BasicCancel(consumerTag);
+channel1.Close();
+channel2.Close();
+connection.Close();
+*/
+

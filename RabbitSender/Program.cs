@@ -1,5 +1,5 @@
 
-//Direct Exchange Example
+//Direct Exchange Example Sender
 /*
 using RabbitMQ.Client;
 using System.Text;
@@ -31,7 +31,6 @@ for(int i = 1; i <= 30; i++)
 channel.Close();
 connection.Close();
 */
-
 
 //Topic Exchange Example Sender
 /*
@@ -97,7 +96,6 @@ channel.Close();
 connection.Close();
 */
 
-
 // Fanout Exchange Example Sender
 /*
 using RabbitMQ.Client;
@@ -125,3 +123,76 @@ for (int i = 1; i <= 10; i++)
 channel.Close();
 connection.Close();
 */
+
+// Priority Queue Example - Queue Declaration and Message Publishing
+/*
+using RabbitMQ.Client;
+using System.Text;
+
+string userName = "guest", password = "guest", queueMessagesPort = "5672";
+ConnectionFactory connectionFactory = new();
+connectionFactory.Uri = new Uri($"amqp://{userName}:{password}@localhost:{queueMessagesPort}");
+connectionFactory.ClientProvidedName = "RabbitMQ Priority Publisher";
+connectionFactory.VirtualHost = "newVHost1";
+
+using IConnection connection = connectionFactory.CreateConnection();
+using IModel channel = connection.CreateModel();
+
+string queueName = "task_priority_queue";
+
+channel.QueueDeclare(queue: queueName,
+                     durable: true,
+                     exclusive: false,
+                     autoDelete: false,
+                     arguments: new Dictionary<string, object> { { "x-max-priority", 10 } });
+
+for (int i = 1; i <= 5; i++)
+{
+    var properties = channel.CreateBasicProperties();
+    properties.Priority = (byte)i; // Set priority (1 to 5)
+
+    string message = $"Task with priority {i}";
+    byte[] messageBodyBytes = Encoding.UTF8.GetBytes(message);
+    channel.BasicPublish(exchange: "",
+                         routingKey: queueName,
+                         basicProperties: properties,
+                         body: messageBodyBytes);
+    Console.WriteLine($"Sent: {message}");
+}
+
+Console.WriteLine("All messages sent.");
+*/
+
+// Different Channel Acknowledgment Example Sender
+/*
+using RabbitMQ.Client;
+using System.Text;
+
+string userName = "guest", password = "guest", queueMessagesPort = "5672";
+ConnectionFactory connectionFactory = new();
+connectionFactory.Uri = new Uri($"amqp://{userName}:{password}@localhost:{queueMessagesPort}");
+connectionFactory.ClientProvidedName = "RabbitMQ Sender App";
+connectionFactory.VirtualHost = "newVHost1";
+
+IConnection connection = connectionFactory.CreateConnection();
+IModel channel = connection.CreateModel();
+
+string queueName = "queue1";
+string exchangeName = "exchange1";
+string routingName = "routingKey1";
+
+channel.ExchangeDeclare(exchangeName, ExchangeType.Direct);
+channel.QueueDeclare(queueName, true, false, false, null);
+channel.QueueBind(queueName, exchangeName, routingName, null);
+
+for (int i = 1; i <= 30; i++)
+{
+    byte[] messageBodyBytes = Encoding.UTF8.GetBytes($"Message #{i}");
+    channel.BasicPublish(exchangeName, routingName, null, messageBodyBytes);
+    await Task.Delay(200);
+}
+
+channel.Close();
+connection.Close();
+*/
+
